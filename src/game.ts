@@ -249,7 +249,7 @@ export function mountGame(
 
   function judgeTap(lane: Lane): void {
     if (paused || ended || counting) return;
-    unlockAudio();
+    void unlockAudio();
     if (!useCircles) {
       const candidates = visibleInLane(lane);
       if (!candidates.length) {

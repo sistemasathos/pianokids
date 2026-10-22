@@ -1,4 +1,4 @@
-import { unlockAudio } from "./audio";
+import { playPiano, unlockAudio } from "./audio";
 import { mountGame, type GameHandle } from "./game";
 import { registerPwa, watchInstallPrompt, type BeforeInstallPromptEvent } from "./pwa";
 import { renderReady, renderResult, renderSettings, renderSongList, toast } from "./screens";
@@ -52,7 +52,8 @@ function goReady(): void {
 function goGame(): void {
   screen = "game";
   game?.destroy();
-  unlockAudio();
+  void unlockAudio();
+  if (save.sound) playPiano(60, 0.35);
   game = mountGame(
     app,
     currentSong,
@@ -116,13 +117,9 @@ function goSettings(): void {
   );
 }
 
-document.addEventListener(
-  "pointerdown",
-  () => {
-    unlockAudio();
-  },
-  { passive: true },
-);
+document.addEventListener("pointerdown", () => {
+  void unlockAudio();
+});
 
 watchInstallPrompt((event) => {
   installEvent = event;
