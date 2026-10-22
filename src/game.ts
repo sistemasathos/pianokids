@@ -141,7 +141,7 @@ export function mountGame(
   function yFor(note: SongNote, el: HTMLElement): number {
     const spawn = note.beat + leadIn - profile.lookAheadBeats;
     const t = (currentBeat - spawn) / profile.lookAheadBeats;
-    const tileH = el.offsetHeight || fieldH * 0.72;
+    const tileH = el.offsetHeight || fieldH * 0.3;
     const hitY = fieldH - HIT_FROM_BOTTOM;
     return -tileH + t * (hitY + tileH * 0.12);
   }

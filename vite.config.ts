@@ -15,7 +15,7 @@ function collectFiles(dir: string, rel = "."): string[] {
 
 function generateSw(assets: string[]): string {
   return `/* PianoKids service worker */
-const CACHE = "pianokids-v2";
+const CACHE = "pianokids-v3";
 const ASSETS = ${JSON.stringify(assets, null, 2)};
 
 self.addEventListener("install", (event) => {
