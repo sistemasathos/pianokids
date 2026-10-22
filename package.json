@@ -1,0 +1,16 @@
+{
+  "name": "pianokids",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "PianoKids — PWA de piano para crianças",
+  "scripts": {
+    "dev": "vite --host --port 5173",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host --port 4173"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5"
+  }
+}
