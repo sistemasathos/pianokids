@@ -1,9 +1,10 @@
-import type { Difficulty, SaveState } from "./types";
+import type { Difficulty, HitMode, SaveState } from "./types";
 
 const KEY = "pianokids-save-v1";
 
 const DEFAULT_SAVE: SaveState = {
   difficulty: "iniciante",
+  hitMode: "teclas",
   sound: true,
   progress: {},
 };
@@ -70,8 +71,10 @@ export function loadSave(): SaveState {
       parsed.difficulty === "mediano" || parsed.difficulty === "avancado" || parsed.difficulty === "iniciante"
         ? parsed.difficulty
         : "iniciante";
+    const hitMode: HitMode = parsed.hitMode === "alvo" ? "alvo" : "teclas";
     return {
       difficulty,
+      hitMode,
       sound: parsed.sound !== false,
       progress: parsed.progress && typeof parsed.progress === "object" ? parsed.progress : {},
     };

@@ -58,6 +58,7 @@ function goGame(): void {
     currentSong,
     save.difficulty,
     save.sound,
+    save.hitMode,
     (result) => {
       lastResult = result;
       if (!result.failed && result.stars >= 1) {
@@ -107,6 +108,7 @@ function goSettings(): void {
     (patch) => {
       save = { ...save, ...patch };
       persist();
+      if (patch.hitMode) toast(patch.hitMode === "teclas" ? "Modo Teclas guardado neste aparelho." : "Modo Alvo guardado neste aparelho.");
       if (patch.difficulty) toast(`${patch.difficulty === "iniciante" ? "Iniciante" : patch.difficulty === "mediano" ? "Mediano" : "Avançado"} guardado neste aparelho.`);
       goSettings();
     },

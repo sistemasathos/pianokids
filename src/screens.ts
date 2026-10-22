@@ -1,7 +1,18 @@
 import { DIFFICULTIES } from "./storage";
 import type { BeforeInstallPromptEvent } from "./pwa";
 import { SONGS, isUnlocked } from "./songs";
-import type { Difficulty, GameResult, SaveState, Song } from "./types";
+import type { Difficulty, GameResult, HitMode, SaveState, Song } from "./types";
+
+const HIT_MODES: Record<HitMode, { title: string; blurb: string }> = {
+  teclas: {
+    title: "Teclas",
+    blurb: "Toca a tecla a qualquer momento. Sem bolinhas.",
+  },
+  alvo: {
+    title: "Alvo",
+    blurb: "Toca quando a tecla chega ao círculo.",
+  },
+};
 
 function starsHtml(count: number, size = "md"): string {
   const bits = [0, 1, 2].map((i) => `<span class="star ${i < count ? "on" : ""} ${size}">★</span>`).join("");
@@ -101,6 +112,7 @@ export function renderReady(
   onStart: () => void,
 ): void {
   const profile = DIFFICULTIES[save.difficulty];
+  const hit = HIT_MODES[save.hitMode];
   const prog = save.progress[song.id];
   const modeName = save.difficulty === "iniciante" ? "Modo calmo" : "Modo clássico";
   root.innerHTML = `
@@ -113,8 +125,8 @@ export function renderReady(
         </div>
       </header>
       <div class="ready-hero">
-        <p class="mode-kicker">${modeName}</p>
-        <p class="mode-copy">${profile.blurb}</p>
+        <p class="mode-kicker">${hit.title} · ${modeName}</p>
+        <p class="mode-copy">${hit.blurb} ${profile.blurb}</p>
         <button class="start-key" type="button">Começar</button>
       </div>
       <footer class="ready-foot">
@@ -206,6 +218,20 @@ export function renderSettings(
           <p class="tagline">Vale para todas as músicas neste aparelho</p>
         </div>
       </header>
+      <h2 class="section-title">Como tocar a tecla?</h2>
+      <div class="diff-grid">
+        ${(Object.keys(HIT_MODES) as HitMode[])
+          .map((id) => {
+            const m = HIT_MODES[id];
+            return `
+              <button class="diff-card ${save.hitMode === id ? "on" : ""}" type="button" data-hit="${id}">
+                <strong>${m.title}</strong>
+                <span>${m.blurb}</span>
+              </button>
+            `;
+          })
+          .join("")}
+      </div>
       <h2 class="section-title">Como queres tocar?</h2>
       <div class="diff-grid">${cards}</div>
       <label class="sound-row">
@@ -224,6 +250,9 @@ export function renderSettings(
   `;
   root.querySelector(".back")?.addEventListener("click", onBack);
   root.querySelector("[data-songs]")?.addEventListener("click", onBack);
+  root.querySelectorAll<HTMLButtonElement>("[data-hit]").forEach((btn) => {
+    btn.addEventListener("click", () => onChange({ hitMode: btn.dataset.hit as HitMode }));
+  });
   root.querySelectorAll<HTMLButtonElement>("[data-diff]").forEach((btn) => {
     btn.addEventListener("click", () => onChange({ difficulty: btn.dataset.diff as Difficulty }));
   });

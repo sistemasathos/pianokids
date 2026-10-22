@@ -1,5 +1,6 @@
 export type Lane = 0 | 1 | 2 | 3;
 export type Difficulty = "iniciante" | "mediano" | "avancado";
+export type HitMode = "teclas" | "alvo";
 export type SongLevel = "facil" | "medio";
 
 export interface SongNote {
@@ -24,6 +25,7 @@ export interface SongProgress {
 
 export interface SaveState {
   difficulty: Difficulty;
+  hitMode: HitMode;
   sound: boolean;
   progress: Record<string, SongProgress>;
 }

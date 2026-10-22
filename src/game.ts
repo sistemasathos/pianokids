@@ -1,6 +1,6 @@
 import { playMissThud, playPiano, unlockAudio } from "./audio";
 import { DIFFICULTIES } from "./storage";
-import type { Difficulty, GameResult, Lane, Song, SongNote } from "./types";
+import type { Difficulty, GameResult, HitMode, Lane, Song, SongNote } from "./types";
 
 interface LiveNote {
   note: SongNote;
@@ -38,6 +38,7 @@ export function mountGame(
   song: Song,
   difficulty: Difficulty,
   soundOn: boolean,
+  hitMode: HitMode,
   onEnd: (result: GameResult) => void,
   onQuit: () => void,
 ): GameHandle {
@@ -45,6 +46,7 @@ export function mountGame(
   const last = song.notes[song.notes.length - 1];
   const totalBeats = last.beat + last.dur;
   const leadIn = profile.lookAheadBeats;
+  const useCircles = hitMode === "alvo";
 
   root.innerHTML = `
     <section class="game-screen" aria-label="Jogo">
@@ -61,19 +63,23 @@ export function mountGame(
           ? `<div class="lives" aria-label="Vidas">${"<span class='heart'>♥</span>".repeat(profile.maxMisses)}</div>`
           : `<div class="lives calm">Modo calmo</div>`
       }
-      <div class="playfield" role="application" aria-label="Quatro pistas">
+      <div class="playfield mode-${hitMode}" role="application" aria-label="Quatro pistas">
         <div class="lanes">
           <div class="lane" data-lane="0"></div>
           <div class="lane" data-lane="1"></div>
           <div class="lane" data-lane="2"></div>
           <div class="lane" data-lane="3"></div>
         </div>
-        <div class="hit-row">
+        ${
+          useCircles
+            ? `<div class="hit-row">
           <span class="hit-circle" data-lane="0"></span>
           <span class="hit-circle" data-lane="1"></span>
           <span class="hit-circle" data-lane="2"></span>
           <span class="hit-circle" data-lane="3"></span>
-        </div>
+        </div>`
+            : ""
+        }
         <div class="judge-layer"></div>
       </div>
       <div class="countdown" hidden><span>3</span></div>
@@ -135,7 +141,7 @@ export function mountGame(
   function yFor(note: SongNote, el: HTMLElement): number {
     const spawn = note.beat + leadIn - profile.lookAheadBeats;
     const t = (currentBeat - spawn) / profile.lookAheadBeats;
-    const tileH = el.offsetHeight || fieldH * 0.22;
+    const tileH = el.offsetHeight || fieldH * 0.72;
     const hitY = fieldH - HIT_FROM_BOTTOM;
     return -tileH + t * (hitY + tileH * 0.12);
   }
@@ -203,15 +209,68 @@ export function mountGame(
 
   function distToHit(n: LiveNote): number {
     const tile = n.el.getBoundingClientRect();
-    const circle = circles[n.note.lane].getBoundingClientRect();
+    const circle = circles[n.note.lane];
+    if (!circle) return 0;
+    const circleBox = circle.getBoundingClientRect();
     const tileY = tile.top + tile.height * 0.82;
-    const circleY = circle.top + circle.height / 2;
+    const circleY = circleBox.top + circleBox.height / 2;
     return tileY - circleY;
+  }
+
+  function visibleInLane(lane: Lane): LiveNote[] {
+    return live.filter(
+      (n) => n.note.lane === lane && !n.judged && n.el.style.visibility !== "hidden",
+    );
+  }
+
+  function applyHit(best: LiveNote, lane: Lane, perfect: boolean): void {
+    best.judged = true;
+    best.hit = true;
+    hits += 1;
+    combo += 1;
+    if (perfect) {
+      perfects += 1;
+      score += 300 + Math.min(combo, 12) * 10;
+      popup(judgeLayer, "Perfeito!", lane, "perfect");
+    } else {
+      score += 150 + Math.min(combo, 12) * 5;
+      popup(judgeLayer, "Boa!", lane, "good");
+    }
+    scoreEl.textContent = String(score);
+    best.el.classList.add(perfect ? "hit-perfect" : "hit-good");
+    circles[lane]?.classList.add("flash");
+    window.setTimeout(() => {
+      best.el.remove();
+      circles[lane]?.classList.remove("flash");
+    }, 160);
+    if (soundOn) playPiano(best.note.midi, Math.max(0.28, best.note.dur * (60 / bpmNow()) * 0.85));
+    if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate(12);
   }
 
   function judgeTap(lane: Lane): void {
     if (paused || ended || counting) return;
     unlockAudio();
+    if (!useCircles) {
+      const candidates = visibleInLane(lane);
+      if (!candidates.length) {
+        if (!profile.ignoreEmptyTaps) registerMiss(lane);
+        return;
+      }
+      let best = candidates[0];
+      let bestBottom = best.el.getBoundingClientRect().bottom;
+      for (const n of candidates) {
+        const bottom = n.el.getBoundingClientRect().bottom;
+        if (bottom > bestBottom) {
+          best = n;
+          bestBottom = bottom;
+        }
+      }
+      const field = playfield.getBoundingClientRect();
+      const perfect = bestBottom > field.top + field.height * 0.45;
+      applyHit(best, lane, perfect);
+      return;
+    }
+
     const pad = hitPadPx();
     let best: LiveNote | null = null;
     let bestAbs = Infinity;
@@ -228,29 +287,7 @@ export function mountGame(
       if (!profile.ignoreEmptyTaps) registerMiss(lane);
       return;
     }
-
-    best.judged = true;
-    best.hit = true;
-    hits += 1;
-    combo += 1;
-    const perfect = bestAbs <= pad * 0.42;
-    if (perfect) {
-      perfects += 1;
-      score += 300 + Math.min(combo, 12) * 10;
-      popup(judgeLayer, "Perfeito!", lane, "perfect");
-    } else {
-      score += 150 + Math.min(combo, 12) * 5;
-      popup(judgeLayer, "Boa!", lane, "good");
-    }
-    scoreEl.textContent = String(score);
-    best.el.classList.add(perfect ? "hit-perfect" : "hit-good");
-    circles[lane].classList.add("flash");
-    window.setTimeout(() => {
-      best?.el.remove();
-      circles[lane].classList.remove("flash");
-    }, 160);
-    if (soundOn) playPiano(best.note.midi, Math.max(0.28, best.note.dur * (60 / bpmNow()) * 0.85));
-    if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate(12);
+    applyHit(best, lane, bestAbs <= pad * 0.42);
   }
 
   function tick(ts: number): void {
@@ -264,6 +301,7 @@ export function mountGame(
     currentBeat += (dt / 1000) * (bpmNow() / 60);
     fill.style.width = `${Math.min(100, (currentBeat / (totalBeats + leadIn)) * 100)}%`;
     const pad = hitPadPx();
+    const fieldBox = playfield.getBoundingClientRect();
 
     let remaining = 0;
     for (const n of live) {
@@ -273,17 +311,28 @@ export function mountGame(
       const t = (currentBeat - spawn) / profile.lookAheadBeats;
       n.el.style.visibility = t < -0.05 ? "hidden" : "visible";
       n.el.style.transform = `translate3d(0, ${yFor(n.note, n.el)}px, 0)`;
-      const dist = distToHit(n);
-      const near = Math.abs(dist) <= pad * 1.25;
-      n.el.classList.toggle("near", near);
-      circles[n.note.lane].classList.toggle("hot", near && !n.judged);
-
-      if (!n.missed && dist > pad) {
-        n.missed = true;
-        n.judged = true;
-        n.el.classList.add("missed");
-        window.setTimeout(() => n.el.remove(), 180);
-        registerMiss(n.note.lane);
+      const tileBox = n.el.getBoundingClientRect();
+      if (useCircles) {
+        const dist = distToHit(n);
+        const near = Math.abs(dist) <= pad * 1.25;
+        n.el.classList.toggle("near", near);
+        circles[n.note.lane]?.classList.toggle("hot", near && !n.judged);
+        if (!n.missed && dist > pad) {
+          n.missed = true;
+          n.judged = true;
+          n.el.classList.add("missed");
+          window.setTimeout(() => n.el.remove(), 180);
+          registerMiss(n.note.lane);
+        }
+      } else {
+        n.el.classList.toggle("near", t >= 0 && t < 1.2);
+        if (!n.missed && tileBox.top > fieldBox.bottom - 6) {
+          n.missed = true;
+          n.judged = true;
+          n.el.classList.add("missed");
+          window.setTimeout(() => n.el.remove(), 180);
+          registerMiss(n.note.lane);
+        }
       }
     }
 
